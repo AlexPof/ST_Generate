@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import struct
+import sys
 
 ################## MIDI-RELATED FUNCTIONS
 
@@ -131,9 +132,10 @@ def get_projection(camera,point,extent,focal):
 
     nx = x-xc
     ny = y-yc
-    nx = nx*np.cos(angle)+ny*np.sin(angle)
+    nnx = nx*np.cos(angle)+ny*np.sin(angle)
+    nny = -nx*np.sin(angle)+ny*np.cos(angle)
 
-    return (nx+extent)/(1.0+ny/focal)
+    return (nnx+extent)/(1.0+nny/focal)
 
 def get_points(event,scale,camera,focal):
     """
@@ -141,7 +143,7 @@ def get_points(event,scale,camera,focal):
     """
     time_points = []
     if event["type"]=="Circle":
-        x,y,d = scale*event["parameters"]["center_x"],scale*event["parameters"]["center_x"],scale*event["parameters"]["diameter"]
+        x,y,d = scale*event["parameters"]["center_x"],scale*event["parameters"]["center_y"],scale*event["parameters"]["diameter"]
         time = get_projection(camera,(x,y),-d/2.0,focal)
         time_points.append(("ON",time))
         time = get_projection(camera,(x,y),d/2.0,focal)
@@ -176,34 +178,41 @@ def get_points(event,scale,camera,focal):
 
 ################## MAIN
 
-with open('ST_25_json.txt') as data_file:    
+data_filename = sys.argv[1]
+angle_start = float(sys.argv[2])
+angle_end = float(sys.argv[3])
+num_angles = float(sys.argv[4])
+
+with open(data_filename) as data_file:    
     data = json.load(data_file)
 
-print data["name"]
-scale = data["cm_to_sec"]
-focal = float(data["focal"])
+    scale = data["cm_to_sec"]
+    focal = float(data["focal"])
 
-total=[]
+    for angle in np.linspace(angle_start,angle_end,num_angles):
+        print "Processing ",data["name"]," at angle ",angle
 
-for sound in data["sounds"]:    
-    for event in sound["events"]:
-        time_points = get_points(event,scale,(0.0,0.0,0.0),focal)
-        time_points = sorted(time_points,key=lambda x: x[1])
-        c=0
-        for note_type,time in time_points:
-            if note_type == "ON":
-                c+=1
-                if c == 1:
-                    total.append((note_type,sound["midi_note"],event["velocity"],time))
-            if note_type == "OFF":
-                c-=1
-                if c == 0:
-                    total.append((note_type,sound["midi_note"],event["velocity"],time))
-                    
-total=sorted(total,key=lambda x: x[1])
-min_time = min([x[3] for x in total])
-total = [{"type":x[0],"note":x[1],"velocity":x[2],"time":x[3]-min_time} for x in total]
+        total=[]
 
-midi_data = {}
-midi_data["tracks"] = [total]
-writeMIDI("essai.mid",midi_data)
+        for sound in data["sounds"]:    
+            for event in sound["events"]:
+                time_points = get_points(event,scale,(0.0,0.0,angle),focal)
+                time_points = sorted(time_points,key=lambda x: x[1])
+                c=0
+                for note_type,time in time_points:
+                    if note_type == "ON":
+                        c+=1
+                        if c == 1:
+                            total.append((note_type,sound["midi_note"],event["velocity"],time))
+                    if note_type == "OFF":
+                        c-=1
+                        if c == 0:
+                            total.append((note_type,sound["midi_note"],event["velocity"],time))
+                            
+        total=sorted(total,key=lambda x: x[1])
+        min_time = min([x[3] for x in total])
+        total = [{"type":x[0],"note":x[1],"velocity":x[2],"time":x[3]-min_time} for x in total]
+
+        midi_data = {}
+        midi_data["tracks"] = [total]
+        writeMIDI("output-"+str(angle)+".mid",midi_data)
