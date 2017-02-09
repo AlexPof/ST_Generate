@@ -213,7 +213,7 @@ with open(data_filename) as data_file:
     data = json.load(data_file)
 
     scale = data["cm_to_sec"]
-    focal = float(data["focal"])
+    focal = scale*float(data["focal"])
 
     for angle in np.linspace(angle_start,angle_end,num_angles):
         print "Processing ",data["name"]," at angle ",angle
