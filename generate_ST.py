@@ -118,12 +118,39 @@ def writeMIDI(filepath,data):
             
 ################## CAMERA PROJECTIONS
 
+def get_circleprojection(camera,point,radius,focal):
+    """
+        camera : (xc,yc,angle) coordinates of the center of the projection plane, and its angle (in degrees)
+        point : (x,y) coordinates of the center of the circle to be projected
+        radius : radius of the circle to be projected
+        focal : float value for the projection focal
+    """
+    xc,yc,angle = camera
+    angle = np.deg2rad(angle)
+    x,y = point
+
+    nx = x-xc
+    ny = y-yc
+
+    nnx = nx*np.cos(angle)+ny*np.sin(angle)
+    nny = -nx*np.sin(angle)+ny*np.cos(angle)
+
+    alpha = np.arctan((nny+focal)/nnx)
+    theta = np.arcsin(radius/np.linalg.norm([nnx,nny+focal]))
+
+    p1_x = nnx-radius*np.cos(alpha-theta)
+    p1_y = nny+radius*np.sin(alpha-theta)
+    p2_x = nnx+radius*np.cos(alpha+theta)
+    p2_y = nny-radius*np.sin(alpha+theta)
+    
+    proj = [p1_x/(1.0+p1_y/focal),p2_x/(1.0+p2_y/focal)]
+
+    return min(proj),max(proj)
             
-def get_projection(camera,point,extent,focal):
+def get_pointprojection(camera,point,focal):
     """
         camera : (xc,yc,angle) coordinates of the center of the projection plane, and its angle (in degrees)
         point : (x,y) coordinates of the point to be projected
-        extent :  the extension of a point. Null for point sounds, +/- radius for circles
         focal : float value for the projection focal
     """
     xc,yc,angle = camera
@@ -135,7 +162,7 @@ def get_projection(camera,point,extent,focal):
     nnx = nx*np.cos(angle)+ny*np.sin(angle)
     nny = -nx*np.sin(angle)+ny*np.cos(angle)
 
-    return (nnx+extent)/(1.0+nny/focal)
+    return nnx/(1.0+nny/focal)
 
 def get_points(event,scale,camera,focal):
     """
@@ -144,14 +171,13 @@ def get_points(event,scale,camera,focal):
     time_points = []
     if event["type"]=="Circle":
         x,y,d = scale*event["parameters"]["center_x"],scale*event["parameters"]["center_y"],scale*event["parameters"]["diameter"]
-        time = get_projection(camera,(x,y),-d/2.0,focal)
-        time_points.append(("ON",time))
-        time = get_projection(camera,(x,y),d/2.0,focal)
-        time_points.append(("OFF",time))
+        time_start,time_end = get_circleprojection(camera,(x,y),d/2.0,focal)
+        time_points.append(("ON",time_start))
+        time_points.append(("OFF",time_end))
         
     elif event["type"]=="Point":
         x,y = scale*event["parameters"]["x"],scale*event["parameters"]["y"]
-        time = get_projection(camera,(x,y),0.0,focal)
+        time = get_pointprojection(camera,(x,y),focal)
         time_points.append(("ON",time))
         time_points.append(("OFF",time+0.01))
         
@@ -161,7 +187,7 @@ def get_points(event,scale,camera,focal):
         sx,sy,ex,ey,csx,csy,cex,cey,sp =  [scale*event["parameters"][x] for x in pnames]
         
         b_x,b_y = sx,sy
-        time = get_projection(camera,(b_x,b_y),0.0,focal)
+        time = get_pointprojection(camera,(b_x,b_y),focal)
         time_points.append(("ON",time))
         time_points.append(("OFF",time+0.01))
         
@@ -170,7 +196,7 @@ def get_points(event,scale,camera,focal):
             nb_y = sy*(1.0-t)**3+csy*3.0*t*(1.0-t)**2+cey*3.0*(t**2)*(1.0-t)+ey*t**3
             if np.linalg.norm([nb_x-b_x,nb_y-b_y])>sp:
                 b_x,b_y = nb_x,nb_y
-                time = get_projection(camera,(b_x,b_y),0.0,focal)
+                time = get_pointprojection(camera,(b_x,b_y),focal)
                 time_points.append(("ON",time))
                 time_points.append(("OFF",time+0.01))
                 
