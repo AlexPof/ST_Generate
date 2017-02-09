@@ -135,7 +135,7 @@ def get_circleprojection(camera,point,radius,focal):
     nnx = nx*np.cos(angle)+ny*np.sin(angle)
     nny = -nx*np.sin(angle)+ny*np.cos(angle)
 
-    alpha = np.arctan((nny+focal)/nnx)
+    alpha = np.arctan(nnx/(nny+focal))
     theta = np.arcsin(radius/np.linalg.norm([nnx,nny+focal]))
 
     p1_x = nnx-radius*np.cos(alpha-theta)
