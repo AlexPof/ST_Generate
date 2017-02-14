@@ -220,22 +220,24 @@ with open(data_filename) as data_file:
 
         total=[]
 
-        for sound in data["sounds"]:    
+        for sound in data["sounds"]:
+            time_points=[]
             for event in sound["events"]:
-                time_points = get_points(event,scale,(0.0,0.0,angle),focal)
-                time_points = sorted(time_points,key=lambda x: x[1])
-                c=0
-                for note_type,time in time_points:
-                    if note_type == "ON":
-                        c+=1
-                        if c == 1:
-                            total.append((note_type,sound["midi_note"],event["velocity"],time))
-                    if note_type == "OFF":
-                        c-=1
-                        if c == 0:
-                            total.append((note_type,sound["midi_note"],event["velocity"],time))
+                for x in get_points(event,scale,(0.0,0.0,angle),focal):
+                    time_points.append(x)
+            time_points = sorted(time_points,key=lambda x: x[1])
+            c=0
+            for note_type,time in time_points:
+                if note_type == "ON":
+                    c+=1
+                    if c == 1:
+                        total.append((note_type,sound["midi_note"],event["velocity"],time))
+                if note_type == "OFF":
+                    c-=1
+                    if c == 0:
+                        total.append((note_type,sound["midi_note"],event["velocity"],time))
                             
-        total=sorted(total,key=lambda x: x[1])
+        total=sorted(total,key=lambda x: x[3])
         min_time = min([x[3] for x in total])
         total = [{"type":x[0],"note":x[1],"velocity":x[2],"time":x[3]-min_time} for x in total]
 
