@@ -215,17 +215,19 @@ with open(data_filename) as data_file:
     data = json.load(data_file)
 
     scale = data["cm_to_sec"]
-    focal = scale*float(data["focal"])
+    focal = float(data["focal"])
 
     for angle in np.linspace(angle_start,angle_end,num_angles):
         print "Processing ",data["name"]," at angle ",angle
+        
+        camera = (0.0,0.0,angle)
 
         total=[]
 
         for sound in data["sounds"]:
             time_points=[]
             for event in sound["events"]:
-                for x in get_points(event,scale,(0.0,0.0,angle),focal):
+                for x in get_points(event,scale,camera,focal):
                     time_points.append(x)
             time_points = sorted(time_points,key=lambda x: x[1])
             c=0
