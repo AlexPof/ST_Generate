@@ -168,6 +168,8 @@ def get_points(event,scale,camera,focal):
     """
         event : dictionary describing the geometry of the event
     """
+    camera=[scale*camera[0],scale*camera[1],camera[2]]
+    focal=scale*focal
     time_points = []
     if event["type"]=="Circle":
         x,y,d = scale*event["parameters"]["center_x"],scale*event["parameters"]["center_y"],scale*event["parameters"]["diameter"]
