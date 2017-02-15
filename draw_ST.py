@@ -13,7 +13,7 @@ from reportlab.lib.colors import Color
 ################## PDF DRAW
 
 def drawLine(canvas, p1, p2, scale, rgba): 
-    canvas.setStrokeColor(Color(rgba[0],rgba[1],rgba[2],alpha=1.0))
+    canvas.setStrokeColor(Color(rgba[0],rgba[1],rgba[2],alpha=rgba[3]))
     canvas.setFillColor(Color(rgba[0],rgba[1],rgba[2],alpha=rgba[3]))
     
     center_pagex = 21.0*cm/2.0
@@ -35,7 +35,7 @@ def drawCircle(canvas, x, y, r, scale, rgba):
     y_cen = center_pagey+scale*y
     r *= scale
 
-    c.circle(x_cen, y_cen, r, stroke=1, fill=0)
+    c.circle(x_cen, y_cen, r, stroke=1, fill=1)
 
 def drawMultiString( canvas, x, y, scale, s ): 
     center_pagex = 21.0*cm/2.0
@@ -215,11 +215,11 @@ for i,sound in enumerate(data["sounds"]):
         if event["type"] == "Circle":
             x_cen,y_cen = event["parameters"]["center_x"],event["parameters"]["center_y"]
             r = event["parameters"]["diameter"]/2.0      
-            drawCircle(c,x_cen, y_cen, r, display_scale, (0.0,0.0,0.0,1.0))
+            drawCircle(c,x_cen, y_cen, r, display_scale, sound["color"])
             drawMultiString(c, x_cen,y_cen,display_scale, sound["name"])
             if not focal == float("Inf"):
-                drawLine(c, (x_cen-r, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, (0.26,0.26,0.96,0.2))
-                drawLine(c, (x_cen+r, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, (0.26,0.26,0.96,0.2))
+                drawLine(c, (x_cen-r, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, sound["color"][:3]+[0.05])
+                drawLine(c, (x_cen+r, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, sound["color"][:3]+[0.05])
             
         if event["type"] == "Bezier":
             pnames = ["start_x","start_y","end_x","end_y","control_start_x",
@@ -228,10 +228,9 @@ for i,sound in enumerate(data["sounds"]):
             
             b_x,b_y = sx,sy
             x_cen,y_cen = b_x,b_y
-            drawCircle(c,x_cen, y_cen, 0.02, display_scale, (0.0,0.0,0.0,1.0))
-
+            drawCircle(c,x_cen, y_cen, 0.02, display_scale, sound["color"])
             if not focal == float("Inf"):
-                drawLine(c, (x_cen, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, (0.86,0.96,0.96,0.2))
+                drawLine(c, (x_cen, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, sound["color"][:3]+[0.05])
             
             for t in np.arange(0.0,1.0,1e-4):
                 nb_x = sx*(1.0-t)**3+csx*3.0*t*(1.0-t)**2+cex*3.0*(t**2)*(1.0-t)+ex*t**3
@@ -239,16 +238,15 @@ for i,sound in enumerate(data["sounds"]):
                 if np.linalg.norm([nb_x-b_x,nb_y-b_y])>sp:
                     b_x,b_y = nb_x,nb_y
                     x_cen,y_cen = b_x,b_y
-                    drawCircle(c,x_cen, y_cen, 0.02, display_scale, (0.0,0.0,0.0,1.0))
-                    '''
+                    drawCircle(c,x_cen, y_cen, 0.02, display_scale, sound["color"])
                     if not focal == float("Inf"):
-                        drawLine(c, (x_cen, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, (0.86,0.96,0.96))
-                    '''
+                        drawLine(c, (x_cen, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, sound["color"][:3]+[0.05])
+                    
         if event["type"] == "Point":
             x_cen,y_cen = event["parameters"]["x"],event["parameters"]["y"]
-            drawCircle(c,x_cen, y_cen, 0.02, display_scale, (0.0,0.0,0.0,1.0))
+            drawCircle(c,x_cen, y_cen, 0.02, display_scale, sound["color"])
             if not focal == float("Inf"):
-                drawLine(c, (x_cen, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, (0.86,0.96,0.96,0.2))
+                drawLine(c, (x_cen, y_cen), (camera[0]+focal*np.sin(np.deg2rad(camera[2])),camera[1]-focal*np.cos(np.deg2rad(camera[2]))), display_scale, sound["color"][:3]+[0.05])
 
 
 c.showPage()
