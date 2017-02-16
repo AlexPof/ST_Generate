@@ -187,7 +187,7 @@ c.setFont('TestFont',10)
 c.setStrokeColorRGB(0.0,0.0,0.0)
 c.setFillColorRGB(0.0,0.0,0.0)
 c.setLineWidth(0.1)
-display_scale = 12.
+display_scale = 23.
 
 scale_maxtime = 21.*cm/data["max_time"]
 
@@ -202,13 +202,15 @@ drawLine(c, (camera[0],camera[1]), (camera[0]+focal*np.sin(np.deg2rad(camera[2])
 
 for i,sound in enumerate(data["sounds"]):
     
+    c.setLineWidth(2.0)
     for proj1,proj2 in zip(sound["time_projections"][::2],sound["time_projections"][1::2]):
         t1 = proj1[1]
         t2 = proj2[1]
-        c.setStrokeColorRGB(0.0,0.0,0.5)
-        c.setFillColorRGB(0.0,0.0,0.5)
-
+        
+        c.setStrokeColor(Color(sound["color"][0],sound["color"][1],sound["color"][2],alpha=1.0))
+        c.setFillColor(Color(sound["color"][0],sound["color"][1],sound["color"][2],alpha=1.0))
         c.line(t1*scale_maxtime,(0.5+0.1*i)*cm,t2*scale_maxtime,(0.5+0.1*i)*cm)
+    c.setLineWidth(0.4)
     
     for event in sound["events"]:
         
