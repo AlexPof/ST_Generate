@@ -5,14 +5,44 @@
 	<head>
 	<style type="text/css">
    	.overlay {
-  fill: none;
-  pointer-events: all;
-}
+  		fill: none;
+  		pointer-events: all;
+		}
+
+		.dialogbox {
+			position: absolute;
+		  left: 300px;
+		  top: 200px;
+		  width: 400px;
+			border: 1px solid lightgray;
+			border-radius: 10px;
+			z-index: 100;
+			background-color: rgb(255, 255, 255);
+			visibility: hidden;
+		}
    </style>
    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" integrity="sha384-WskhaSGFgHYWDcbwN70/dfYBj47jz9qbsMId/iRN3ewGhXQFZCSftd1LZCfmhktB" crossorigin="anonymous">
 	</head>
 	<body>
-	<div class="container" >
+
+	<div id="dialogdiv_bezier" class="dialogbox">
+		<label>Spacing values</label>
+    <input type="text" class="form-control" id="spacing_input"><br>
+		<label>Velocity</label>
+    <input type="text" class="form-control" id="velocity_input"><br>
+		<center>
+		<button class="btn btn-success" onClick="submit_dialogdata('dialogdiv_bezier');" id="submit_btn">OK</button>
+		</center>
+	</div>
+	<div id="dialogdiv_point" class="dialogbox">
+		<label>Velocity</label>
+    <input type="text" class="form-control" id="velocity_input"><br>
+		<center>
+		<button class="btn btn-success" onClick="submit_dialogdata('dialogdiv_point');" id="submit_btn">OK</button>
+		</center>
+	</div>
+
+		<div class="container" >
 		<div class="row" style="border: 1px solid lightgray; border-radius: 8px;">
 		<div class="col" style="border: 1px solid lightgray; border-radius: 8px;" id="files">
 		</div>

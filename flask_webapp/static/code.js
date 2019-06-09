@@ -4,6 +4,8 @@ var CM_TO_SEC;
 var SOUNDS_LIST;
 var SCREEN_SCALING=50;
 var CURRENT_SELECTION;
+var DIALOGBOX_ON=0;
+var CURRENT_SCORE;
 
 $.ajax({
         url: '/getfiles',
@@ -14,11 +16,13 @@ $.ajax({
         processData: false,
         success: function(response, textStatus, jqXHR) {
 			filelist = response.filelist;
-			var the_html=""
+			var the_html="<button class='btn btn-success' onClick='generate_MIDI();' id='submit_btn'>Generate MIDI</button><br><br>";
+
 			for (var i = 0; i < filelist.length; i++) {
 				the_html+='<a href="#" class="list-group-item list-group-item-action" style="font-size:12px; height: 40px;" id="'+filelist[i]+'">';
 				the_html+=filelist[i]+"</a>";
 			}
+      the_html+="<br><br><button class='btn btn-info' onClick='save_score();' id='submit_btn'>Save</button>";
 			$("#files").html(the_html);
 			for(i=0;i<filelist.length;i++) {
 				$("#"+filelist[i]).on("click",
@@ -35,6 +39,7 @@ $.ajax({
       });
 
 function get_score(filename) {
+
 $.ajax({
         url: '/readfile',
         dataType: 'json',
@@ -47,13 +52,13 @@ $.ajax({
                   			d3.selectAll(".elements-point").remove();
                         d3.selectAll(".elements-bezier").remove();
 
-                  			score = response.score;
-                        CM_TO_SEC = score.cm_to_sec/SCREEN_SCALING;
+                  			CURRENT_SCORE = response.score;
+                        CM_TO_SEC = CURRENT_SCORE.cm_to_sec/SCREEN_SCALING;
                         SOUNDS_LIST = {};
                         d3.select("#sounds").selectAll("*").remove();
 
-                  			for(i=0;i<score.sounds.length;i++) {
-                  				sounds = score.sounds[i];
+                  			for(i=0;i<CURRENT_SCORE.sounds.length;i++) {
+                  				sounds = CURRENT_SCORE.sounds[i];
                           SOUNDS_LIST[i] = {"midi_note":sounds.midi_note,"name":sounds.name,"color":sounds.color};
 
                           var the_div = d3.select("#sounds").append("div")
@@ -89,7 +94,7 @@ $.ajax({
                                                    })
                                                    .attr("width",25)
                                                    .attr("height",25);
-                        addpoint_svg.append("circle")
+                      addpoint_svg.append("circle")
                                .attr("cx",12)
                                .attr("cy",12)
                                .attr("r",5)
@@ -129,6 +134,22 @@ $.ajax({
       });
 }
 
+function submit_dialogdata(dialogdiv) {
+  var new_d = CURRENT_SELECTION.datum();
+
+  if (dialogdiv=="dialogdiv_bezier") {
+    var new_spacing_value = parseFloat(d3.select('#'+dialogdiv).select("#spacing_input").property("value"));
+    new_d.spacing = new_spacing_value;
+    set_bezier_curve(CURRENT_SELECTION);
+  }
+  var new_velocity_value = parseFloat(d3.select('#'+dialogdiv).select("#velocity_input").property("value"));
+  new_d.MIDI_velocity = new_velocity_value;
+  CURRENT_SELECTION.datum(new_d);
+  d3.select('#'+dialogdiv).style("visibility","hidden");
+  DIALOGBOX_ON=0;
+  recalculate();
+}
+
 var SHIFT_DOWN=false;
 var CTRL_DOWN=false;
 var camera_x = 0;
@@ -147,12 +168,24 @@ d3.select('body').on('keydown', function() {
                                             CTRL_DOWN=true;
                                             break;
                                           case 8:
-                                            if (CURRENT_SELECTION != null) {
+                                            if (CURRENT_SELECTION != null && DIALOGBOX_ON==0) {
                                               CURRENT_SELECTION.remove();
                                               CURRENT_SELECTION = null;
                                             }
                                             recalculate();
                                             break;
+                                          case 13:
+                                            if (CURRENT_SELECTION != null && DIALOGBOX_ON==0) {
+                                              if (CURRENT_SELECTION.attr("class")=="elements-bezier") {
+                                                d3.select("#dialogdiv_bezier").style("visibility","visible");
+                                                d3.select("#dialogdiv_bezier").select("#spacing_input").property("value",CURRENT_SELECTION.datum().spacing);
+                                                d3.select("#dialogdiv_bezier").select("#velocity_input").property("value",CURRENT_SELECTION.datum().MIDI_velocity);
+                                              } else {
+                                                d3.select("#dialogdiv_point").style("visibility","visible");
+                                                d3.select("#dialogdiv_point").select("#velocity_input").property("value",CURRENT_SELECTION.datum().MIDI_velocity);
+                                              }
+                                              DIALOGBOX_ON=1;
+                                            }
                                         }
                                       })
                       .on('keyup', function() {
@@ -203,8 +236,15 @@ projection_SVG.append("rect")
 var graphix_proj = projection_SVG.append("g");
 
 var zoom_handler = d3.zoom()
-          .on("zoom", function zoom_actions(){graphix2.attr("transform", d3.event.transform);  if (CURRENT_SELECTION != null) { CURRENT_SELECTION.attr("style","outline: none;"); } CURRENT_SELECTION=null;
-                                             });
+          .on("zoom", function zoom_actions(){
+                        graphix2.attr("transform", d3.event.transform);
+                        if (CURRENT_SELECTION != null) {
+                          CURRENT_SELECTION.attr("style","outline: none;");
+                        }
+                        CURRENT_SELECTION=null;
+                        d3.select("#dialogdiv_bezier").style("visibility","hidden");
+                        d3.select("#dialogdiv_point").style("visibility","hidden");
+                      });
 graphix.call(zoom_handler);
 
 var zoom_handler_projection = d3.zoom()
@@ -259,7 +299,11 @@ function add_point(sound_event,sound_index) {
   x = SCREEN_SCALING*sound_event.parameters.x;
   y = SCREEN_SCALING*sound_event.parameters.y;
   the_point = graphix2.append("g").attr("class","elements-point").attr("transform", "translate(" + x + "," + y+")");
-  the_point.datum({"x":x,"y":y,"sound_index":sound_index});
+  the_point.datum({"x":x,
+                   "y":y,
+                   "sound_index":sound_index,
+                   "MIDI_velocity":sound_event.velocity
+                 });
 
   the_point.append("circle")
            .attr("cx",0)
@@ -283,7 +327,12 @@ function add_circle(sound_event,sound_index) {
   r = SCREEN_SCALING*sound_event.parameters.diameter/2;
 
   var the_circle = graphix2.append("g").attr("class","elements-circle").attr("transform", "translate(" + x + "," + y+")");
-  the_circle.datum({"center_x":x,"center_y":y,"r":r,"sound_index":sound_index});
+  the_circle.datum({"center_x":x,
+                    "center_y":y,
+                    "r":r,
+                    "sound_index":sound_index,
+                    "MIDI_velocity":sound_event.velocity
+                  });
 
   var inside_circ = the_circle.append("circle")
        .attr("cx",0)
@@ -318,6 +367,7 @@ function add_bezier(sound_event,sound_index) {
                     "control_end_y":control_end_y,
                     "spacing":spacing,
                     "sound_index":sound_index,
+                    "MIDI_velocity":sound_event.velocity
                   });
   the_bezier.append("path").attr("id","bezier_path");
   the_bezier.append("line").attr("id","control_start_line");
@@ -405,10 +455,6 @@ function set_bezier_curve(g_element) {
              .attr("stroke","black")
              .attr("fill","gray")
              .attr("opacity",0.4);
-}
-
-function dummy_drag(d) {
-  console.log(d3.event.x,d3.event.y);
 }
 
 function dragged_circle(d) {
@@ -727,4 +773,145 @@ function recalculate() {
 
         }
       });
+}
+
+function generate_MIDI() {
+  var focal_value = Math.sqrt((focal_x-camera_x)*(focal_x-camera_x)+(focal_y-camera_y)*(focal_y-camera_y));
+  var angle = Math.atan2((camera_y-focal_y), (camera_x-focal_x))-Math.PI/2;
+  if (d3.select("#isometric_checkbox").property("checked")) {
+	   focal_value = 100000;
+  }
+  var all_sound_events = new Array();
+
+  for (var i in  SOUNDS_LIST) {
+    var timepoints = new Array();
+    d3.selectAll(".elements-circle")
+  		.each(function(d) {
+         if (d.sound_index==i) {
+    				var projection = get_circleprojection(camera_x,camera_y,focal_value,angle,d.center_x,d.center_y,d.r);
+            var start_time = projection[0]*CM_TO_SEC;
+            var end_time = projection[1]*CM_TO_SEC;
+            var velocity = d.MIDI_velocity;
+            var midi_note = SOUNDS_LIST[i].midi_note;
+            timepoints.push(["ON",midi_note,velocity,start_time]);
+            timepoints.push(["OFF",midi_note,velocity,end_time]);
+         }
+  		});
+      d3.selectAll(".elements-point")
+    		.each(function(d) {
+           if (d.sound_index==i) {
+      				var x_proj = get_pointprojection(camera_x,camera_y,focal_value,angle,d.x,d.y);
+              var start_time = x_proj*CM_TO_SEC;
+              var velocity = d.MIDI_velocity;
+              var midi_note = SOUNDS_LIST[i].midi_note;
+              timepoints.push(["ON",midi_note,velocity,start_time]);
+              timepoints.push(["OFF",midi_note,velocity,start_time+0.01]);
+           }
+    	});
+      d3.selectAll(".elements-bezier")
+    		.each(function(d) {
+          if (d.sound_index==i) {
+    			  var points_x = d.points_x;
+            var points_y = d.points_y;
+            for (j=0;j<points_x.length;j++) {
+      				var x_proj = get_pointprojection(camera_x,camera_y,focal_value,angle,points_x[j],points_y[j]);
+              var start_time = x_proj*CM_TO_SEC;
+              var velocity = d.MIDI_velocity;
+              var midi_note = SOUNDS_LIST[i].midi_note;
+              timepoints.push(["ON",midi_note,velocity,start_time]);
+              timepoints.push(["OFF",midi_note,velocity,start_time+0.01]);
+            }
+          }
+      });
+      all_sound_events.push(timepoints);
+  }
+
+  $.ajax({
+          url: '/generatemidi',
+          dataType: 'json',
+          type: 'post',
+          contentType: 'application/json',
+          data: JSON.stringify({"all_timepoints":all_sound_events,
+                                "camera_x":camera_x/SCREEN_SCALING,
+                                "camera_y":camera_y/SCREEN_SCALING,
+                                "camera_angle":angle,
+                              }),
+          processData: false,
+          success: function(response, textStatus, jqXHR) {},
+          error: function(response, textStatus, jqXHR) {console.log("Fail");}
+        });
+}
+
+function save_score() {
+  var saving_data = {};
+
+  saving_data["name"] = CURRENT_SCORE.name;
+  saving_data["cm_to_sec"] = CURRENT_SCORE.cm_to_sec;
+  saving_data["focal"] = CURRENT_SCORE.focal;
+  saving_data["sounds"] = new Array();
+
+  for (var i in  SOUNDS_LIST) {
+    var sound_data = {};
+    sound_data["name"] = SOUNDS_LIST[i].name;
+    sound_data["midi_note"] = SOUNDS_LIST[i].midi_note;
+    sound_data["color"] = SOUNDS_LIST[i].color;
+    sound_data["events"] = new Array();
+
+    d3.selectAll(".elements-circle")
+  		.each(function(d) {
+         if (d.sound_index==i) {
+           sound_data["events"].push({"type":"Circle",
+                                      "velocity":d.MIDI_velocity,
+                                      "parameters":{
+                                        "center_x":d.center_x/SCREEN_SCALING,
+                                        "center_y":d.center_y/SCREEN_SCALING,
+                                        "diameter":2*d.r/SCREEN_SCALING
+                                      }
+                                    });
+         }
+  		});
+      d3.selectAll(".elements-point")
+    		.each(function(d) {
+          if (d.sound_index==i) {
+            sound_data["events"].push({"type":"Point",
+                                       "velocity":d.MIDI_velocity,
+                                       "parameters":{
+                                         "x":d.x/SCREEN_SCALING,
+                                         "y":d.y/SCREEN_SCALING
+                                       }
+                                     });
+          }
+    	});
+      d3.selectAll(".elements-bezier")
+    		.each(function(d) {
+          if (d.sound_index==i) {
+            sound_data["events"].push({"type":"Bezier",
+                                       "velocity":d.MIDI_velocity,
+                                       "parameters":{
+                                         "start_x":d.start_x/SCREEN_SCALING,
+                                         "start_y":d.start_y/SCREEN_SCALING,
+                                         "end_x":d.end_x/SCREEN_SCALING,
+                                         "end_y":d.end_y/SCREEN_SCALING,
+                                         "control_start_x":d.control_start_x/SCREEN_SCALING,
+                                         "control_start_y":d.control_start_y/SCREEN_SCALING,
+                                         "control_end_x":d.control_end_x/SCREEN_SCALING,
+                                         "control_end_y":d.control_end_y/SCREEN_SCALING,
+                                         "spacing":d.spacing/SCREEN_SCALING
+                                       }
+                                     });
+          }
+      });
+      saving_data["sounds"].push(sound_data);
+  }
+
+  $.ajax({
+          url: '/save',
+          dataType: 'json',
+          type: 'post',
+          contentType: 'application/json',
+          data: JSON.stringify(saving_data),
+          processData: false,
+          success: function(response, textStatus, jqXHR) {},
+          error: function(response, textStatus, jqXHR) {console.log("Fail");}
+        });
 }
